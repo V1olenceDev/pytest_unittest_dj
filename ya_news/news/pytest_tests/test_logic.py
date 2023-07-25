@@ -1,10 +1,11 @@
-import pytest
 from http import HTTPStatus
 from random import choice
-from pytest_django.asserts import assertRedirects, assertFormError
+
+import pytest
 from django.urls import reverse
 from news.forms import BAD_WORDS, WARNING
 from news.models import Comment
+from pytest_django.asserts import assertRedirects, assertFormError
 
 pytestmark = pytest.mark.django_db
 
@@ -12,13 +13,12 @@ pytestmark = pytest.mark.django_db
 # Тест: анонимный пользователь не может создать комментарий
 def test_anonymous_user_cant_create_comment(client, pk_from_news, form_data):
     url = reverse('news:detail', args=pk_from_news)
+    assert not Comment.objects.exists()
     response = client.post(url, data=form_data)
     login_url = reverse('users:login')
     expected_url = f'{login_url}?next={url}'
     assertRedirects(response, expected_url)
-    comments_count = Comment.objects.count()
-    expected_comments = 0
-    assert comments_count == expected_comments
+    assert not Comment.objects.exists()
 
 
 # Тест: пользователь может создать комментарий
@@ -28,9 +28,8 @@ def test_user_can_create_comment(admin_user, admin_client, news, form_data):
     expected_url = url + '#comments'
     assertRedirects(response, expected_url)
     comments_count = Comment.objects.count()
-    expected_comments = 1
-    assert comments_count == expected_comments
-    new_comment = Comment.objects.get()
+    assert comments_count == 1
+    new_comment = Comment.objects.first()
     assert new_comment.text == form_data['text']
     assert new_comment.news == news
     assert new_comment.author == admin_user
@@ -49,10 +48,10 @@ def test_user_cant_use_bad_words(admin_client, pk_from_news):
 
 # Тест: автор комментария может отредактировать свой комментарий
 def test_author_can_edit_comment(
-    author_client,
-    pk_from_news,
-    comment,
-    form_data
+        author_client,
+        pk_from_news,
+        comment,
+        form_data
 ):
     url = reverse('news:edit', args=[comment.pk])
     response = author_client.post(url, data=form_data)
@@ -72,12 +71,13 @@ def test_author_can_delete_comment(
     response = author_client.post(url)
     expected_url = reverse('news:detail', args=pk_from_news) + '#comments'
     assertRedirects(response, expected_url)
-    comments_count = Comment.objects.count()
-    expected_comments = 0
-    assert comments_count == expected_comments
+
+    # Check that the comment has been deleted from the database
+    comment_exists = Comment.objects.filter(pk=pk_from_comment[0]).exists()
+    assert not comment_exists
 
 
-# Тест: cdпользователь не может редактировать чужой комментарий
+# Тест: пользователь не может редактировать чужой комментарий
 def test_other_user_cant_edit_comment(
     admin_client,
     pk_from_news,

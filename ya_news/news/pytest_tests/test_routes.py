@@ -4,39 +4,41 @@ from django.urls import reverse
 from pytest_django.asserts import assertRedirects
 
 
-# Тест: доступность страниц для анонимного пользователя
+# Общая функция для проверки страниц
+def check_page_availability(client, page, args, expected_status):
+    url = reverse(page, args=args)
+    response = client.get(url)
+    assert response.status_code == expected_status
+
+
+# Тест: доступность страниц для различных пользователей
 @pytest.mark.parametrize(
-    'page, args',
+    'page, args, expected_status',
     [
-        ('news:home', None),
-        ('users:login', None),
-        ('users:logout', None),
-        ('users:signup', None),
-        ('news:detail', pytest.lazy_fixture('pk_from_news'))
+        ('news:home', None, HTTPStatus.OK),
+        ('users:login', None, HTTPStatus.OK),
+        ('users:logout', None, HTTPStatus.OK),
+        ('users:signup', None, HTTPStatus.OK),
+        ('news:detail', pytest.lazy_fixture('pk_from_news'), HTTPStatus.OK),
+        ('news:edit', pytest.lazy_fixture('pk_from_comment'), HTTPStatus.OK),
+        ('news:delete', pytest.lazy_fixture('pk_from_comment'), HTTPStatus.OK)
     ]
 )
 @pytest.mark.django_db
-def test_pages_availability_for_anonymous_user(client, page, args):
-    url = reverse(page, args=args)
-    response = client.get(url)
-    assert response.status_code == HTTPStatus.OK
-
-
-# Тест: доступность страниц для авторизованного пользователя
-@pytest.mark.parametrize(
-    'page, args',
-    [
-        ('news:edit', pytest.lazy_fixture('pk_from_comment')),
-        ('news:delete', pytest.lazy_fixture('pk_from_comment'))
-    ]
-)
-def test_pages_availability_for_auth_user(author_client, page, args):
-    url = reverse(page, args=args)
-    response = author_client.get(url)
-    assert response.status_code == HTTPStatus.OK
+def test_pages_availability(client,
+                            author_client,
+                            admin_client,
+                            page,
+                            args,
+                            expected_status,
+                            pk_from_comment):
+    if client == admin_client:
+        expected_status = HTTPStatus.NOT_FOUND
+    check_page_availability(client, page, args, expected_status)
 
 
 # Тест: проверка редиректа на страницы аутентификации
+@pytest.mark.django_db
 @pytest.mark.parametrize(
     'page, args',
     [
@@ -50,12 +52,3 @@ def test_redirects(client, page, args):
     expected_url = f'{login_url}?next={url}'
     response = client.get(url)
     assertRedirects(response, expected_url)
-
-
-# Тест: проверка доступности страниц для пользователей
-@pytest.mark.parametrize('page', ('news:edit', 'news:delete'))
-def test_pages_availability_for_different_users(
-        page, pk_from_comment, admin_client):
-    url = reverse(page, args=pk_from_comment)
-    response = admin_client.get(url)
-    assert response.status_code == HTTPStatus.NOT_FOUND

@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
+from notes.forms import NoteForm
 from notes.models import Note
 
 User = get_user_model()
@@ -38,7 +39,7 @@ class TestContent(TestCase):
                 self.assertEqual(note_in_object_list, note_in_list)
 
     # Проверка наличия формы на страницах
-    def test_pages_contains_form(self):
+    def test_pages_contains_correct_form(self):
         urls = (
             ('notes:add', None),
             ('notes:edit', (self.note.slug,)),
@@ -49,3 +50,4 @@ class TestContent(TestCase):
                 self.client.force_login(self.author)
                 response = self.client.get(url)
                 self.assertIn('form', response.context)
+                self.assertIsInstance(response.context['form'], NoteForm)
