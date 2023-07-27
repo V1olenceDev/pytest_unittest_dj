@@ -44,7 +44,8 @@ def test_comments_order(client, pk_from_news):
     url = reverse('news:detail', args=pk_from_news)
     res = client.get(url)
     object_list = res.context['news'].comment_set.all()
-    sorted_list_of_comments = sorted(object_list,
-                                     key=lambda comment: comment.created)
-    for as_is, to_be in zip(object_list, sorted_list_of_comments):
-        assert as_is.created == to_be.created
+    sorted_list_of_comments = sorted(
+        object_list,
+        key=lambda comment: comment.created
+    )
+    assert list(object_list) == sorted_list_of_comments
