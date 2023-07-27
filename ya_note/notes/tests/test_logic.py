@@ -47,10 +47,10 @@ class TestNoteCreationAndEditDelete(TestCase):
         self.assertEqual(len(notes), 0)
 
     def test_slug_must_be_unique(self):
-        note = Note.objects.create(title=self.form_data['title'],
-                                   text=self.form_data['text'],
-                                   slug=self.form_data['slug'],
-                                   author=self.author)
+        Note.objects.create(title=self.form_data['title'],
+                            text=self.form_data['text'],
+                            slug=self.form_data['slug'],
+                            author=self.author)
         response = self.author_client.post(reverse('notes:add'),
                                            data=self.form_data)
         warning = self.form_data['slug'] + WARNING
@@ -112,4 +112,3 @@ class TestNoteCreationAndEditDelete(TestCase):
         self.assertEqual(len(notes), 1)
         note_from_db = Note.objects.filter(id=note.id).first()
         self.assertIsNotNone(note_from_db)
-

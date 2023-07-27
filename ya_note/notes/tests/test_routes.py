@@ -11,8 +11,8 @@ User = get_user_model()
 class TestRoutes(TestCase):
     @classmethod
     def setUpTestData(cls):
-        cls.author = User.objects.create(username='тот ещё автор')
-        cls.user = User.objects.create(username='залогиненый пользователь')
+        cls.author = User.objects.create(username='автор')
+        cls.user = User.objects.create(username='пользователь')
         cls.auth_client = Client()
         cls.auth_client.force_login(cls.user)
         cls.author_client = Client()
