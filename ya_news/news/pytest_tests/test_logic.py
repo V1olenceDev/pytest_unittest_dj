@@ -3,9 +3,10 @@ from random import choice
 
 import pytest
 from django.urls import reverse
+from pytest_django.asserts import assertRedirects, assertFormError
+
 from news.forms import BAD_WORDS, WARNING
 from news.models import Comment
-from pytest_django.asserts import assertRedirects, assertFormError
 
 pytestmark = pytest.mark.django_db
 
@@ -25,6 +26,9 @@ def test_anonymous_user_cant_create_comment(client, pk_from_news, form_data):
 # Тест: пользователь может создать комментарий
 def test_user_can_create_comment(admin_user, admin_client, news, form_data):
     url = reverse('news:detail', args=[news.pk])
+    # Удаляем все существующие комментарии,
+    # чтобы обеспечить пустое состояние базы данных
+    Comment.objects.all().delete()
     initial_comment_count = Comment.objects.count()
     response = admin_client.post(url, data=form_data)
     expected_url = url + '#comments'
@@ -41,11 +45,11 @@ def test_user_can_create_comment(admin_user, admin_client, news, form_data):
 def test_user_cant_use_bad_words(admin_client, pk_from_news):
     bad_words_data = {'text': f'Какой-то text, {choice(BAD_WORDS)}, еще text'}
     url = reverse('news:detail', args=pk_from_news)
+    initial_comment_count = Comment.objects.count()
     response = admin_client.post(url, data=bad_words_data)
     assertFormError(response, form='form', field='text', errors=WARNING)
-    comments_count = Comment.objects.count()
-    expected_comments = 0
-    assert comments_count == expected_comments
+    final_comment_count = Comment.objects.count()
+    assert initial_comment_count == final_comment_count
 
 
 # Тест: автор комментария может отредактировать свой комментарий

@@ -27,13 +27,24 @@ class TestNoteCreationAndEditDelete(TestCase):
             'text': 'Updated text'
         }
 
+    def create_note(self, **kwargs):
+        default_data = {
+            'title': 'Default title',
+            'text': 'Default text',
+            'slug': 'default-slug',
+            'author': self.author
+        }
+        default_data.update(kwargs)
+        return Note.objects.create(**default_data)
+
     def test_user_can_create_note(self):
         response = self.author_client.post(reverse('notes:add'),
                                            data=self.form_data)
         self.assertRedirects(response, reverse('notes:success'))
-        notes = Note.objects.filter(title=self.form_data['title'])
-        self.assertEqual(len(notes), 1)
-        new_note = Note.objects.get(slug=self.form_data['slug'])
+        # Получаем только что созданную заметку, используя предоставленный slug
+        new_note_slug = self.form_data['slug']
+        new_note = Note.objects.get(slug=new_note_slug)
+        # Проверяем атрибуты новой заметки
         self.assertEqual(new_note.title, self.form_data['title'])
         self.assertEqual(new_note.text, self.form_data['text'])
         self.assertEqual(new_note.author, self.author)
@@ -47,10 +58,9 @@ class TestNoteCreationAndEditDelete(TestCase):
         self.assertEqual(len(notes), 0)
 
     def test_slug_must_be_unique(self):
-        Note.objects.create(title=self.form_data['title'],
-                            text=self.form_data['text'],
-                            slug=self.form_data['slug'],
-                            author=self.author)
+        self.create_note(title=self.form_data['title'],
+                         text=self.form_data['text'],
+                         slug=self.form_data['slug'])
         response = self.author_client.post(reverse('notes:add'),
                                            data=self.form_data)
         warning = self.form_data['slug'] + WARNING
@@ -66,8 +76,8 @@ class TestNoteCreationAndEditDelete(TestCase):
         self.assertEqual(len(notes), 1)
 
     def test_author_can_edit_note(self):
-        note = Note.objects.create(title='title', text='text',
-                                   slug='note-slug', author=self.author)
+        note = self.create_note(title='title', text='text',
+                                slug='note-slug')
         edit_url = reverse('notes:edit', args=[note.slug])
         response = self.author_client.post(edit_url, self.new_form_data)
         self.assertRedirects(response, reverse('notes:success'))
@@ -95,8 +105,6 @@ class TestNoteCreationAndEditDelete(TestCase):
         delete_url = reverse('notes:delete', args=[note.slug])
         response = self.author_client.post(delete_url)
         self.assertRedirects(response, reverse('notes:success'))
-        notes = Note.objects.filter(author=self.author)
-        self.assertEqual(len(notes), 0)
         note_from_db = Note.objects.filter(id=note.id).exists()
         self.assertFalse(note_from_db)
 
@@ -108,7 +116,5 @@ class TestNoteCreationAndEditDelete(TestCase):
         delete_url = reverse('notes:delete', args=[note.slug])
         response = self.reader_client.post(delete_url)
         self.assertEqual(response.status_code, 404)
-        notes = Note.objects.filter(author=note.author)
-        self.assertEqual(len(notes), 1)
         note_from_db = Note.objects.filter(id=note.id).first()
         self.assertIsNotNone(note_from_db)
