@@ -110,6 +110,5 @@ def test_other_user_cant_delete_comment(
     url = reverse('news:delete', args=pk_from_comment)
     response = admin_client.post(url)
     assert response.status_code == HTTPStatus.NOT_FOUND
-    comments_count = Comment.objects.count()
-    expected_comments = 1
-    assert comments_count == expected_comments
+    comments_count = Comment.objects.filter(news_id=pk_from_news).count()
+    assert comments_count == 1

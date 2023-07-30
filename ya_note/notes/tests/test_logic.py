@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
+from django.utils.text import slugify
 
 from notes.forms import WARNING
 from notes.models import Note
@@ -27,35 +28,36 @@ class TestNoteCreationAndEditDelete(TestCase):
             'text': 'Updated text'
         }
 
-    def create_note(self, **kwargs):
+    def create_note(self, author=None, **kwargs):
         default_data = {
             'title': 'Default title',
             'text': 'Default text',
             'slug': 'default-slug',
-            'author': self.author
         }
         default_data.update(kwargs)
-        return Note.objects.create(**default_data)
+        author = author or self.author
+        return Note.objects.create(author=author, **default_data)
 
     def test_user_can_create_note(self):
+        Note.objects.all().delete()
         response = self.author_client.post(reverse('notes:add'),
                                            data=self.form_data)
         self.assertRedirects(response, reverse('notes:success'))
-        # Получаем только что созданную заметку, используя предоставленный slug
-        new_note_slug = self.form_data['slug']
-        new_note = Note.objects.get(slug=new_note_slug)
-        # Проверяем атрибуты новой заметки
+        notes_after = Note.objects.all()
+        self.assertEqual(len(notes_after), 1)
+        new_note = notes_after[0]
         self.assertEqual(new_note.title, self.form_data['title'])
         self.assertEqual(new_note.text, self.form_data['text'])
         self.assertEqual(new_note.author, self.author)
 
     def test_anonymous_user_cant_create_note(self):
+        Note.objects.all().delete()
         response = self.client.post(reverse('notes:add'), data=self.form_data)
         login_url = reverse('users:login')
         expected_url = f'{login_url}?next={reverse("notes:add")}'
         self.assertRedirects(response, expected_url)
-        notes = Note.objects.filter(title=self.form_data['title'])
-        self.assertEqual(len(notes), 0)
+        notes_after = Note.objects.all()
+        self.assertEqual(len(notes_after), 0)
 
     def test_slug_must_be_unique(self):
         self.create_note(title=self.form_data['title'],
@@ -74,21 +76,28 @@ class TestNoteCreationAndEditDelete(TestCase):
         self.assertRedirects(response, reverse('notes:success'))
         notes = Note.objects.filter(title=self.form_data['title'])
         self.assertEqual(len(notes), 1)
+        new_note = notes.first()
+        self.assertIsNotNone(new_note.slug)
+        self.assertNotEqual(new_note.slug, '')
+        expected_slug = slugify(self.form_data['title'])
+        self.assertEqual(new_note.slug, expected_slug)
 
     def test_author_can_edit_note(self):
         note = self.create_note(title='title', text='text',
-                                slug='note-slug')
+                                slug='slug', author=self.author)
         edit_url = reverse('notes:edit', args=[note.slug])
         response = self.author_client.post(edit_url, self.new_form_data)
         self.assertRedirects(response, reverse('notes:success'))
         new_note = Note.objects.get(id=note.id)
+
+        # Сравнить новые атрибуты заметки с атрибутами исходной заметки
         self.assertEqual(new_note.title, self.new_form_data['title'])
         self.assertEqual(new_note.text, self.new_form_data['text'])
         self.assertEqual(new_note.author, self.author)
 
     def test_other_user_cant_edit_note(self):
-        note = Note.objects.create(title='title', text='text',
-                                   slug='note-slug', author=self.author)
+        note = self.create_note(title='title', text='text', slug='note-slug',
+                                author=self.author)
         edit_url = reverse('notes:edit', args=[note.slug])
         response = self.reader_client.post(edit_url, self.new_form_data)
         self.assertEqual(response.status_code, 404)
@@ -96,7 +105,7 @@ class TestNoteCreationAndEditDelete(TestCase):
         self.assertIsNotNone(note_from_db)
         self.assertEqual(note.title, note_from_db.title)
         self.assertEqual(note.text, note_from_db.text)
-        self.assertEqual(note.author, self.author)
+        self.assertEqual(note.author, note_from_db.author)
 
     def test_author_can_delete_note(self):
         note = Note.objects.create(title='title',
@@ -116,5 +125,5 @@ class TestNoteCreationAndEditDelete(TestCase):
         delete_url = reverse('notes:delete', args=[note.slug])
         response = self.reader_client.post(delete_url)
         self.assertEqual(response.status_code, 404)
-        note_from_db = Note.objects.filter(id=note.id).first()
-        self.assertIsNotNone(note_from_db)
+        note_exists = Note.objects.filter(id=note.id).exists()
+        self.assertTrue(note_exists)

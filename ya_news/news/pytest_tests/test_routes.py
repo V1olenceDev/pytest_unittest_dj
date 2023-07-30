@@ -13,19 +13,22 @@ from pytest_django.asserts import assertRedirects
         ('users:login', None, HTTPStatus.OK),
         ('users:logout', None, HTTPStatus.OK),
         ('users:signup', None, HTTPStatus.OK),
-        ('news:detail', pytest.lazy_fixture('pk_from_news'), HTTPStatus.OK),
-        ('news:edit', pytest.lazy_fixture('pk_from_comment'), None),
-        ('news:delete', pytest.lazy_fixture('pk_from_comment'), None)
+        ('news:detail', pytest.lazy_fixture('pk_from_news'),
+         HTTPStatus.OK),
+        ('news:edit', pytest.lazy_fixture('pk_from_comment'),
+         HTTPStatus.FOUND),
+        ('news:delete', pytest.lazy_fixture('pk_from_comment'),
+         HTTPStatus.FOUND),
     ]
 )
 def test_pages_status_codes(client, page, args, expected_status):
     url = reverse(page, args=args)
     response = client.get(url)
 
-    if expected_status:
+    if expected_status == HTTPStatus.OK:
         assert response.status_code == expected_status
     else:
-        assert response.status_code != HTTPStatus.OK
+        assertRedirects(response, reverse('users:login') + f'?next={url}')
 
 
 # Тест: проверка перенаправления на страницу входа для защищенных страниц
