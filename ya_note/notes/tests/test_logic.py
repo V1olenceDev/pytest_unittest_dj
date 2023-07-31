@@ -45,7 +45,7 @@ class TestNoteCreationAndEditDelete(TestCase):
         self.assertRedirects(response, reverse('notes:success'))
         notes_after = Note.objects.all()
         self.assertEqual(len(notes_after), 1)
-        new_note = notes_after[0]
+        new_note = notes_after.first()
         self.assertEqual(new_note.title, self.form_data['title'])
         self.assertEqual(new_note.text, self.form_data['text'])
         self.assertEqual(new_note.author, self.author)
@@ -70,13 +70,12 @@ class TestNoteCreationAndEditDelete(TestCase):
                              errors=warning)
 
     def test_empty_slug(self):
+        Note.objects.filter(title=self.form_data['title']).delete()
         del self.form_data['slug']
         response = self.author_client.post(reverse('notes:add'),
                                            data=self.form_data)
         self.assertRedirects(response, reverse('notes:success'))
-        notes = Note.objects.filter(title=self.form_data['title'])
-        self.assertEqual(len(notes), 1)
-        new_note = notes.first()
+        new_note = Note.objects.get(title=self.form_data['title'])
         self.assertIsNotNone(new_note.slug)
         self.assertNotEqual(new_note.slug, '')
         expected_slug = slugify(self.form_data['title'])
@@ -93,7 +92,7 @@ class TestNoteCreationAndEditDelete(TestCase):
         # Сравнить новые атрибуты заметки с атрибутами исходной заметки
         self.assertEqual(new_note.title, self.new_form_data['title'])
         self.assertEqual(new_note.text, self.new_form_data['text'])
-        self.assertEqual(new_note.author, self.author)
+        self.assertEqual(new_note.author, note.author)
 
     def test_other_user_cant_edit_note(self):
         note = self.create_note(title='title', text='text', slug='note-slug',

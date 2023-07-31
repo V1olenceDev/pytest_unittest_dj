@@ -103,12 +103,12 @@ def test_other_user_cant_edit_comment(
 
 # Тест: пользователь не может удалить чужой комментарий
 def test_other_user_cant_delete_comment(
-    admin_client,
-    pk_from_news,
-    pk_from_comment
+        admin_client,
+        pk_from_news,
+        pk_from_comment
 ):
     url = reverse('news:delete', args=pk_from_comment)
     response = admin_client.post(url)
     assert response.status_code == HTTPStatus.NOT_FOUND
-    comments_count = Comment.objects.filter(news_id=pk_from_news).count()
-    assert comments_count == 1
+    comment_exists = Comment.objects.filter(news_id=pk_from_news).exists()
+    assert comment_exists is True

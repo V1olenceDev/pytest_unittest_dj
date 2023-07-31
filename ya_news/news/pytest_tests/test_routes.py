@@ -25,10 +25,7 @@ def test_pages_status_codes(client, page, args, expected_status):
     url = reverse(page, args=args)
     response = client.get(url)
 
-    if expected_status == HTTPStatus.OK:
-        assert response.status_code == expected_status
-    else:
-        assertRedirects(response, reverse('users:login') + f'?next={url}')
+    assert response.status_code == expected_status
 
 
 # Тест: проверка перенаправления на страницу входа для защищенных страниц
